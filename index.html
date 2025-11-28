@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8" />
+    <title>Super soustředění 😇</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            cursor: crosshair;
+        }
+
+        #game {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: radial-gradient(circle at center, #233 0%, #000 70%);
+            color: #fff;
+        }
+
+        #instructions {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 1rem;
+            opacity: 0.8;
+            user-select: none;
+        }
+
+        #target {
+            position: absolute;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            font-weight: 700;
+            user-select: none;
+            pointer-events: none;
+            transition: transform 0.08s linear;
+        }
+
+        /* šok overlay */
+        #scare-overlay {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.18s ease-out;
+        }
+
+        #scare-overlay.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #scare-overlay img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #result-text {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 1.4rem;
+            text-shadow: 0 0 8px #000;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+    <div id="game">
+        <div id="instructions">
+            Zkus se dotknout terče myší.<br />
+            Klid, je to jen test soustředění… 😉
+        </div>
+        <div id="target">+</div>
+    </div>
+
+    <!-- overlay s příšerou -->
+    <div id="scare-overlay">
+        <img src="monster.png" alt="BŮŮ!" />
+        <div id="result-text"></div>
+    </div>
+
+    <!-- zvuk – nahraj si vlastní scream.mp3 -->
+    <audio id="scream" src="scream.mp3" preload="auto"></audio>
+
+    <script>
+        const game = document.getElementById('game');
+        const target = document.getElementById('target');
+        const scareOverlay = document.getElementById('scare-overlay');
+        const scream = document.getElementById('scream');
+        const resultText = document.getElementById('result-text');
+
+        let gameActive = true;
+        let startedAt = null;
+        let scareTimeoutId = null;
+
+        // náhodné umístění terče
+        function placeTargetRandom() {
+            const padding = 80;
+            const w = window.innerWidth - padding * 2;
+            const h = window.innerHeight - padding * 2;
+
+            const x = padding + Math.random() * w;
+            const y = padding + Math.random() * h;
+
+            target.style.left = x + "px";
+            target.style.top = y + "px";
+        }
+
+        // spočítej vzdálenost kurzor ↔ terč
+        function distance(x1, y1, x2, y2) {
+            const dx = x1 - x2;
+            const dy = y1 - y2;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function scheduleScare() {
+            // 10–25 sekund, náhodně, ať to není pokaždé stejné
+            const delay = 10000 + Math.random() * 15000;
+            scareTimeoutId = setTimeout(triggerScare, delay);
+        }
+
+        function triggerScare() {
+            if (!gameActive) return;
+            gameActive = false;
+
+            // spočítej čas soustředění
+            const now = performance.now();
+            const seconds = startedAt ? (now - startedAt) / 1000 : 0;
+
+            scareOverlay.classList.add('show');
+
+            // text dole
+            resultText.textContent =
+                `Soustředil ses ${seconds.toFixed(1)} s… 😈`;
+
+            try {
+                scream.currentTime = 0;
+                scream.play();
+            } catch (e) {
+                console.warn("Prohlížeč zablokoval auto-play zvuku.", e);
+            }
+        }
+
+        // hlavní logika
+        document.addEventListener('mousemove', (e) => {
+            if (!gameActive) return;
+
+            // první pohyb → start měření + naplánování šoku
+            if (!startedAt) {
+                startedAt = performance.now();
+                scheduleScare();
+            }
+
+            const rect = target.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+
+            const d = distance(e.clientX, e.clientY, centerX, centerY);
+
+            // když se kurzor příliš přiblíží → terč uskočí
+            const safeRadius = 90; // px
+            if (d < safeRadius) {
+                placeTargetRandom();
+                // malý „cuk“ animace
+                target.style.transform = "scale(1.1)";
+                setTimeout(() => {
+                    target.style.transform = "scale(1)";
+                }, 80);
+            }
+        });
+
+        // inicializace pozice po načtení
+        window.addEventListener('load', placeTargetRandom);
+        window.addEventListener('resize', placeTargetRandom);
+    </script>
+</body>
+</html>
